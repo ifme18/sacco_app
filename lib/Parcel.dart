@@ -5,10 +5,12 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 
+// Constants for API URLs
 const String BASE_URL = 'https://stageapp.livecodesolutions.co.ke';
 const String URL_PAYMENT_MODE = '$BASE_URL/api/PaymentMode';
 
 class ParcelEntryDialog extends StatefulWidget {
+  // Constructor parameters
   final String CompanyCode;
   final String systemAdminName;
   final String systemAdmin;
@@ -26,6 +28,7 @@ class ParcelEntryDialog extends StatefulWidget {
 }
 
 class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
+  // State variables
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _amountController;
   late TextEditingController _commissionController;
@@ -55,6 +58,7 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
   String? _selectedSite;
   String? _token;
 
+  // Bluetooth printer setup
   BlueThermalPrinter printer = BlueThermalPrinter.instance;
   List<BluetoothDevice> devices = [];
   BluetoothDevice? selectedDevice;
@@ -70,6 +74,7 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
     _initializePrinter();
   }
 
+  // Initialize text editing controllers
   void _initializeControllers() {
     _amountController = TextEditingController();
     _commissionController = TextEditingController();
@@ -93,6 +98,7 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
 
   @override
   void dispose() {
+    // Dispose of controllers
     _amountController.dispose();
     _commissionController.dispose();
     _valuedController.dispose();
@@ -114,6 +120,7 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
     super.dispose();
   }
 
+  // Fetch token and related data from shared preferences
   Future<void> _fetchTokenAndData() async {
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString('token');
@@ -125,6 +132,7 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
     }
   }
 
+  // Fetch payment modes from API
   Future<void> _fetchPaymentMode() async {
     if (_token == null) return;
 
@@ -145,6 +153,7 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
     }
   }
 
+  // Fetch sites from API
   Future<void> _fetchSites() async {
     try {
       final response = await http.get(
@@ -157,7 +166,6 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-
         setState(() {
           _siteOptions = data
               .map<String>((item) => item['Site'].toString())
@@ -177,11 +185,13 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
     }
   }
 
+  // Format date to string
   String _formatDate(DateTime date) {
     final DateFormat formatter = DateFormat('yyyy-MM-dd');
     return formatter.format(date);
   }
 
+  // Generate unique Parcel ID and Rec ID
   String _generateParcelId() {
     return DateTime.now().millisecondsSinceEpoch.toString();
   }
@@ -190,12 +200,14 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
     return DateTime.now().millisecondsSinceEpoch.toString();
   }
 
+  // Submit parcel information
   Future<void> _submitParcel() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
     final double amount = double.parse(_amountController.text);
     final double commission = double.parse(_commissionController.text);
+
     final parcelData = {
       'recid': _recId,
       'Amount': amount + commission,
@@ -246,6 +258,7 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
     }
   }
 
+  // Show success dialog
   void _showSuccess(String message) {
     showDialog(
       context: context,
@@ -264,6 +277,7 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
     );
   }
 
+  // Show error dialog
   void _showError(String message) {
     showDialog(
       context: context,
@@ -282,11 +296,13 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
     );
   }
 
+  // Initialize Bluetooth printer
   Future<void> _initializePrinter() async {
     devices = await printer.getBondedDevices();
     setState(() {});
   }
 
+  // Scan for Bluetooth devices
   Future<void> _scanForDevices() async {
     setState(() {
       isScanning = true;
@@ -297,6 +313,7 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
     });
   }
 
+  // Connect to selected Bluetooth printer
   Future<void> _connectToPrinter(BluetoothDevice device) async {
     try {
       await printer.connect(device);
@@ -309,89 +326,91 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
     }
   }
 
+  // Show print dialog
   void _showPrintDialog(Map<String, dynamic> parcelData) {
     int copies = 1;
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return StatefulBuilder(
-            builder: (context, setState) {
-              return AlertDialog(
-                title: Text('Print Parcel'),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('Select a printer:'),
-                    DropdownButton<BluetoothDevice>(
-                      value: selectedDevice,
-                      items: devices.map((device) {
-                        return DropdownMenuItem(
-                          value: device,
-                          child: Text(device.name ?? ""),
-                        );
-                      }).toList(),
-                      onChanged: (BluetoothDevice? value) {
-                        setState(() {
-                          selectedDevice = value;
-                        });
-                      },
-                    ),
-                    ElevatedButton(
-                      onPressed: isScanning ? null : () async {
-                        await _scanForDevices();
-                        setState(() {});
-                      },
-                      child: Text(isScanning ? 'Scanning...' : 'Scan for printers'),
-                    ),
-                    SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Number of copies:'),
-                        DropdownButton<int>(
-                          value: copies,
-                          items: List.generate(5, (index) => index + 1).map((int value) {
-                            return DropdownMenuItem<int>(
-                              value: value,
-                              child: Text(value.toString()),
-                            );
-                          }).toList(),
-                          onChanged: (int? value) {
-                            setState(() {
-                              copies = value ?? 1;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    child: Text('Cancel'),
-                    onPressed: () {
-                      Navigator.of(context).pop();
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text('Print Parcel'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Select a printer:'),
+                  DropdownButton<BluetoothDevice>(
+                    value: selectedDevice,
+                    items: devices.map((device) {
+                      return DropdownMenuItem(
+                        value: device,
+                        child: Text(device.name ?? ""),
+                      );
+                    }).toList(),
+                    onChanged: (BluetoothDevice? value) {
+                      setState(() {
+                        selectedDevice = value;
+                      });
                     },
                   ),
-                  TextButton(
-                    child: Text('Print'),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      if (selectedDevice != null) {
-                        _printParcel(parcelData, copies);
-                      } else {
-                        _showError("Please select a printer");
-                      }
+                  ElevatedButton(
+                    onPressed: isScanning ? null : () async {
+                      await _scanForDevices();
+                      setState(() {});
                     },
+                    child: Text(isScanning ? 'Scanning...' : 'Scan for printers'),
+                  ),
+                  SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Number of copies:'),
+                      DropdownButton<int>(
+                        value: copies,
+                        items: List.generate(5, (index) => index + 1).map((int value) {
+                          return DropdownMenuItem<int>(
+                            value: value,
+                            child: Text(value.toString()),
+                          );
+                        }).toList(),
+                        onChanged: (int? value) {
+                          setState(() {
+                            copies = value ?? 1;
+                          });
+                        },
+                      ),
+                    ],
                   ),
                 ],
-              );
-            }
+              ),
+              actions: [
+                TextButton(
+                  child: Text('Cancel'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+                TextButton(
+                  child: Text('Print'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    if (selectedDevice != null) {
+                      _printParcel(parcelData, copies);
+                    } else {
+                      _showError("Please select a printer");
+                    }
+                  },
+                ),
+              ],
+            );
+          },
         );
       },
     );
   }
 
+  // Print the parcel details
   Future<void> _printParcel(Map<String, dynamic> parcelData, int copies) async {
     if (selectedDevice == null) {
       _showError("No printer selected. Please select a printer.");
@@ -405,14 +424,17 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
         if (i > 0) await Future.delayed(Duration(seconds: 1)); // Small delay between prints
 
         await printer.printNewLine();
-        await printer.printCustom("Parcel Receipt", 3, 1);
+        await printer.printCustom("Parcel Receipt", 3, 1); // Print header
         await printer.printNewLine();
+
+        // Print Parcel details
         await printer.printCustom("Parcel ID: ${parcelData['ParcelID']}", 2, 0);
         await printer.printCustom("Town: ${parcelData['Town']}", 2, 0);
         await printer.printCustom("Amount Paid: ${parcelData['Amount']}", 2, 0);
         await printer.printCustom("Commission: ${parcelData['Commission']}", 2, 0);
         await printer.printCustom("Served by: ${parcelData['SystemAdminName']}", 2, 0);
         await printer.printCustom("Date: ${parcelData['Date']}", 2, 0);
+
         await printer.printNewLine();
         await printer.printCustom("Thank you for your business!", 2, 1);
         await printer.printNewLine();
@@ -428,183 +450,185 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
   }
 
   @override
-
   Widget build(BuildContext context) {
-  return Scaffold(
-  body: DraggableScrollableSheet(
-  initialChildSize: 0.8,
-  maxChildSize: 1.0,
-  minChildSize: 0.4,
-  builder: (BuildContext context, ScrollController scrollController) {
-  return SingleChildScrollView(
-  controller: scrollController,
-  child: Container(
-  padding: EdgeInsets.all(16.0),
-  child: Column(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
-  Text(
-  "Parcel Entry",
-  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-  ),
-  SizedBox(height: 16),
-  Form(
-  key: _formKey,
-  child: Column(
-  children: [
-  _buildTextField(_amountController, "Amount", TextInputType.number),
-  _buildTextField(_commissionController, "Commission", TextInputType.number),
-  _buildTextField(_valuedController, "Valued", TextInputType.number),
-  _buildDropdownField(_paymentOptions, _selectedPayment, "Payment Mode", (newValue) {
-  setState(() {
-  _selectedPayment = newValue;
-  });
-  }),
-  _buildTextField(_sendingOfficeController, "Sending Office", TextInputType.text),
-  _buildTextField(_receivingOfficeController, "Receiving Office", TextInputType.text),
-  _buildTextField(_senderNameController, "Sender Name", TextInputType.text),
-  _buildTextField(_senderTelController, "Sender Tel", TextInputType.phone),
-  _buildTextField(_receiverNameController, "Receiver Name", TextInputType.text),
-  _buildTextField(_receiverTelController, "Receiver Tel", TextInputType.phone),
-  _buildTextField(_driverTelController, "Driver Tel", TextInputType.phone),
-  _buildTextField(_descriptionController, "Description", TextInputType.text),
-  _buildTextField(_quantityController, "Quantity", TextInputType.number),
-  _buildDateField(_dateController, "Date", (newValue) {
-  setState(() {
-  _selectedDate = newValue;
-  _dateController.text = _formatDate(newValue);
-  });
-  }),
-  _buildDateField(_dateCapturedController, "Date Captured", (newValue) {
-  setState(() {
-  _dateCapturedController.text = _formatDate(newValue);
-  });
-  }),
-  _buildTextField(_townController, "Town", TextInputType.text),
-  _buildDropdownField(_siteOptions, _selectedSite, "Site", (newValue) {
-  setState(() {
-  _selectedSite = newValue;
-  });
-  }),
-  _buildDateField(_dateAttachedController, "Date Attached", (newValue) {
-  setState(() {
-  _dateAttachedController.text = _formatDate(newValue);
-  });
-  }),
-  _buildDateField(_dateDeliveredController, "Date Delivered", (newValue) {
-  setState(() {
-  _dateDeliveredController.text = _formatDate(newValue);
-  });
-  }),
-  _buildTextField(_collectedByController, "Collected By", TextInputType.text),
-  SizedBox(height: 20),
-  Row(
-  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-  children: [
-  ElevatedButton(
-  onPressed: _submitParcel,
-  child: Text("Submit"),
-  ),
-  ElevatedButton(
-  onPressed: () {
-  if (_formKey.currentState!.validate()) {
-  final double amount = double.parse(_amountController.text);
-  final double commission = double.parse(_commissionController.text);
-  final parcelData = {
-  'ParcelID': _parcelId,
-  'Amount': amount + commission,
-  'Commission': commission,
-  'SystemAdminName': widget.systemAdminName,
-  'Date': _dateController.text,
-  'Town': _townController.text,
-  };
-  _showPrintDialog(parcelData);
-  }
-  },
-  child: Text("Print"),
-  ),
-  ],
-  ),
-  ],
-  ),
-  ),
-  ],
-  ),
-  ),
-  );
-  },
-  ),
-  );
+    return Scaffold(
+      body: DraggableScrollableSheet(
+        initialChildSize: 0.8,
+        maxChildSize: 1.0,
+        minChildSize: 0.4,
+        builder: (BuildContext context, ScrollController scrollController) {
+          return SingleChildScrollView(
+            controller: scrollController,
+            child: Container(
+              padding: EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Parcel Entry",
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 16),
+                  Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        _buildTextField(_amountController, "Amount", TextInputType.number),
+                        _buildTextField(_commissionController, "Commission", TextInputType.number),
+                        _buildTextField(_valuedController, "Valued", TextInputType.number),
+                        _buildDropdownField(_paymentOptions, _selectedPayment, "Payment Mode", (newValue) {
+                          setState(() {
+                            _selectedPayment = newValue;
+                          });
+                        }),
+                        _buildTextField(_sendingOfficeController, "Sending Office", TextInputType.text),
+                        _buildTextField(_receivingOfficeController, "Receiving Office", TextInputType.text),
+                        _buildTextField(_senderNameController, "Sender Name", TextInputType.text),
+                        _buildTextField(_senderTelController, "Sender Tel", TextInputType.phone),
+                        _buildTextField(_receiverNameController, "Receiver Name", TextInputType.text),
+                        _buildTextField(_receiverTelController, "Receiver Tel", TextInputType.phone),
+                        _buildTextField(_driverTelController, "Driver Tel", TextInputType.phone),
+                        _buildTextField(_descriptionController, "Description", TextInputType.text),
+                        _buildTextField(_quantityController, "Quantity", TextInputType.number),
+                        _buildDateField(_dateController, "Date", (newValue) {
+                          setState(() {
+                            _selectedDate = newValue;
+                            _dateController.text = _formatDate(newValue);
+                          });
+                        }),
+                        _buildDateField(_dateCapturedController, "Date Captured", (newValue) {
+                          setState(() {
+                            _dateCapturedController.text = _formatDate(newValue);
+                          });
+                        }),
+                        _buildTextField(_townController, "Town", TextInputType.text),
+                        _buildDropdownField(_siteOptions, _selectedSite, "Site", (newValue) {
+                          setState(() {
+                            _selectedSite = newValue;
+                          });
+                        }),
+                        _buildDateField(_dateAttachedController, "Date Attached", (newValue) {
+                          setState(() {
+                            _dateAttachedController.text = _formatDate(newValue);
+                          });
+                        }),
+                        _buildDateField(_dateDeliveredController, "Date Delivered", (newValue) {
+                          setState(() {
+                            _dateDeliveredController.text = _formatDate(newValue);
+                          });
+                        }),
+                        _buildTextField(_collectedByController, "Collected By", TextInputType.text),
+                        SizedBox(height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            ElevatedButton(
+                              onPressed: _submitParcel,
+                              child: Text("Submit"),
+                            ),
+                            ElevatedButton(
+                              onPressed: () {
+                                if (_formKey.currentState!.validate()) {
+                                  final double amount = double.parse(_amountController.text);
+                                  final double commission = double.parse(_commissionController.text);
+                                  final parcelData = {
+                                    'ParcelID': _parcelId,
+                                    'Amount': amount + commission,
+                                    'Commission': commission,
+                                    'SystemAdminName': widget.systemAdminName,
+                                    'Date': _dateController.text,
+                                    'Town': _townController.text,
+                                  };
+                                  _showPrintDialog(parcelData);
+                                }
+                              },
+                              child: Text("Print"),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
+  // Build text fields
   Widget _buildTextField(TextEditingController controller, String label, TextInputType keyboardType) {
-  return Padding(
-  padding: const EdgeInsets.symmetric(vertical: 8.0),
-  child: TextFormField(
-  controller: controller,
-  keyboardType: keyboardType,
-  decoration: InputDecoration(
-  labelText: label,
-  border: OutlineInputBorder(),
-  ),
-  validator: (value) {
-  if (value == null || value.isEmpty) {
-  return 'Please enter $label';
-  }
-  return null;
-  },
-  ),
-  );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(),
+        ),
+        validator: (value) {
+          if (value == null || value.isEmpty) {
+            return 'Please enter $label';
+          }
+          return null;
+        },
+      ),
+    );
   }
 
+  // Build dropdown fields
   Widget _buildDropdownField(List<String> options, String? selectedOption, String label, ValueChanged<String?> onChanged) {
-  return Padding(
-  padding: const EdgeInsets.symmetric(vertical: 8.0),
-  child: DropdownButtonFormField<String>(
-  value: selectedOption,
-  onChanged: onChanged,
-  decoration: InputDecoration(
-  labelText: label,
-  border: OutlineInputBorder(),
-  ),
-  items: options.map<DropdownMenuItem<String>>((String value) {
-  return DropdownMenuItem<String>(
-  value: value,
-  child: Text(value),
-  );
-  }).toList(),
-  validator: (value) {
-  if (value == null || value.isEmpty) {
-  return 'Please select $label';
-  }
-  return null;
-  },
-  ),
-  );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: DropdownButtonFormField<String>(
+        value: selectedOption,
+        onChanged: onChanged,
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(),
+        ),
+        items: options.map<DropdownMenuItem<String>>((String value) {
+          return DropdownMenuItem<String>(
+            value: value,
+            child: Text(value),
+          );
+        }).toList(),
+        validator: (value) {
+          if (value == null || value.isEmpty) {
+            return 'Please select $label';
+          }
+          return null;
+        },
+      ),
+    );
   }
 
+  // Build date fields
   Widget _buildDateField(TextEditingController controller, String label, ValueChanged<DateTime> onChanged) {
-  return Padding(
-  padding: const EdgeInsets.symmetric(vertical: 8.0),
-  child: TextFormField(
-  controller: controller,
-  decoration: InputDecoration(
-  labelText: label,
-  border: OutlineInputBorder(),
-  ),
-  readOnly: true,
-  onTap: () async {
-  DateTime? pickedDate = await showDatePicker(
-  context: context,
-  initialDate: _selectedDate,
-  firstDate: DateTime(2000),
-  lastDate: DateTime(2101),
-  );
-  if (pickedDate != null) {
-  onChanged(pickedDate);
-  }
-  },
-  ),
-  );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TextFormField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(),
+        ),
+        readOnly: true,
+        onTap: () async {
+          DateTime? pickedDate = await showDatePicker(
+            context: context,
+            initialDate: _selectedDate,
+            firstDate: DateTime(2000),
+            lastDate: DateTime(2101),
+          );
+          if (pickedDate != null) {
+            onChanged(pickedDate);
+          }
+        },
+      ),
+    );
   }
 }
