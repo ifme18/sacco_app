@@ -1,0 +1,209 @@
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:intl/intl.dart';
+
+class CashSummaryWidget extends StatefulWidget {
+  final String companyId;
+  final String site;
+  final String companyName;
+  final String email;
+  final String phoneNumber;
+  final String userName;
+
+  CashSummaryWidget({
+    required this.companyId,
+    required this.site,
+    required this.companyName,
+    required this.email,
+    required this.phoneNumber,
+    required this.userName,
+  });
+
+  @override
+  _CashSummaryWidgetState createState() => _CashSummaryWidgetState();
+}
+
+class _CashSummaryWidgetState extends State<CashSummaryWidget>
+    with SingleTickerProviderStateMixin {
+  Map<String, dynamic>? cashSummary;
+  late AnimationController _animationController;
+  late Animation<Offset> _slideAnimation;
+  bool isVisible = true; // Track visibility state
+
+  @override
+  void initState() {
+    super.initState();
+    fetchCashSummary();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 300),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: Offset(0, 0),
+      end: Offset(0, 1),
+    ).animate(_animationController);
+  }
+
+  Future<void> fetchCashSummary() async {
+    // Get the current date
+    final now = DateTime.now();
+
+    // Format the date to 'yyyy-MM-dd' and set the time to midnight for Startdate
+    final String startDate = DateFormat('yyyy-MM-dd 00:00:00').format(now);
+
+    // Set the Enddate to the end of the day (23:59:59)
+    final String endDate = DateFormat('yyyy-MM-dd 23:59:59').format(now);
+
+    final response = await http.get(Uri.parse(
+        'https://stageapp.livecodesolutions.co.ke/api/CashSummary?Company='
+            '${widget.companyId}&site=${widget.site}&User=${widget.userName}&Startdate=$startDate&Enddate=$endDate&RegNo={RegNo}&amount={amount}'
+    ));
+
+    if (response.statusCode == 200) {
+      setState(() {
+        cashSummary = json.decode(response.body);
+      });
+
+      // Print the fetched data on the terminal
+      print('Fetched Cash Summary: $cashSummary');
+    } else {
+      // Handle error
+      print('Failed to fetch cash summary');
+    }
+  }
+
+  void toggleVisibility() {
+    setState(() {
+      if (isVisible) {
+        _animationController.forward();
+      } else {
+        _animationController.reverse();
+      }
+      isVisible = !isVisible;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Cash Summary'),
+      ),
+      body: GestureDetector(
+        onVerticalDragUpdate: (details) {
+          if (details.delta.dy > 0) {
+            toggleVisibility(); // Dragging down hides
+          } else {
+            toggleVisibility(); // Dragging up shows
+          }
+        },
+        child: SlideTransition(
+          position: _slideAnimation,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.5),
+                  spreadRadius: 5,
+                  blurRadius: 7,
+                  offset: Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.blueAccent,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.companyName,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Email: ${widget.email}',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      Text(
+                        'Phone: ${widget.phoneNumber}',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+                // Body
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: cashSummary == null || cashSummary!.isEmpty
+                        ? Center(child: Text('No data available.'))
+                        : ListView.builder(
+                      itemCount: cashSummary?.length ?? 0,
+                      itemBuilder: (context, index) {
+                        String key = cashSummary!.keys.elementAt(index);
+                        return Card(
+                          margin: EdgeInsets.symmetric(vertical: 8),
+                          child: ListTile(
+                            title: Text(key),
+                            subtitle: Text(cashSummary![key].toString()),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                // Footer
+                Container(
+                  padding: EdgeInsets.all(16),
+                  color: Colors.grey[300],
+                  child: Text(
+                    cashSummary == null || cashSummary!.isEmpty
+                        ? 'Amount total: 0.00'
+                        : 'Amount total: ${calculateTotalAmount()}',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Helper function to calculate the total amount from cashSummary
+  double calculateTotalAmount() {
+    if (cashSummary == null || cashSummary!.isEmpty) {
+      return 0.00;
+    }
+    // Assuming cashSummary contains a list of amounts under the key 'amount'
+    // You may need to adjust this based on your actual data structure
+    return cashSummary!.values.fold(0.00, (sum, item) {
+      if (item is Map && item.containsKey('amount')) {
+        return sum + (item['amount'] as num).toDouble();
+      }
+      return sum;
+    });
+  }
+}
