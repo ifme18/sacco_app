@@ -354,6 +354,7 @@ class _BusTicketWidgetState extends State<BusTicketWidget> {
       await printer.printCustom("Vehicle: $_selectedVehicle", 2, 1);
       await printer.printCustom("Amount Paid: ${_amountController.text}", 2, 1);
       await printer.printCustom("Served By: ${widget.userFullName}", 2, 1);
+      await printer.printCustom("Customer Care:${widget.phone}",2,1);
       await printer.paperCut();
 
       await printer.disconnect();

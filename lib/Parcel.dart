@@ -15,12 +15,14 @@ class ParcelEntryDialog extends StatefulWidget {
   final String systemAdminName;
   final String systemAdmin;
   final String Site;
+  final String phone;
 
   ParcelEntryDialog({
     required this.CompanyCode,
     required this.systemAdminName,
     required this.systemAdmin,
     required this.Site,
+    required this.phone,
   });
 
   @override
@@ -433,6 +435,7 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
         await printer.printCustom("Amount Paid: ${parcelData['Amount']}", 2, 0);
         await printer.printCustom("Commission: ${parcelData['Commission']}", 2, 0);
         await printer.printCustom("Served by: ${parcelData['SystemAdminName']}", 2, 0);
+        await printer.printCustom(" Customer care:${widget.phone}",2,0);
         await printer.printCustom("Date: ${parcelData['Date']}", 2, 0);
 
         await printer.printNewLine();

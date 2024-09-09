@@ -252,6 +252,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         escPosPrinter.text('Amount Paid: ${_amountController.text}', styles: PosStyles(fontType: PosFontType.fontB, align: PosAlign.center));
         escPosPrinter.text('Commission: ${_commissionController.text}', styles: PosStyles(fontType: PosFontType.fontA, align: PosAlign.center));
         escPosPrinter.text('Served By: ${widget.userFullName}', styles: PosStyles(fontType: PosFontType.fontA, align: PosAlign.center));
+        escPosPrinter.text('Customer Care${widget.phone}',styles:PosStyles(fontType: PosFontType.fontA, align:PosAlign.center ),);
         escPosPrinter.cut();
       } else {
         _showError("Could not connect to the printer. Please check the IP and port.");

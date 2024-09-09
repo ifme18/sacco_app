@@ -79,6 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
             systemAdminName: widget.userFullName,
             systemAdmin: widget.userName,
             Site: widget.site,
+            phone:widget.phone,
           ),
 
           BusTicketWidget(
