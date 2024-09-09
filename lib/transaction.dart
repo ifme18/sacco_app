@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class CashSummaryWidget extends StatefulWidget {
   final String companyId;
@@ -29,12 +30,13 @@ class _CashSummaryWidgetState extends State<CashSummaryWidget>
   Map<String, dynamic>? cashSummary;
   late AnimationController _animationController;
   late Animation<Offset> _slideAnimation;
-  bool isVisible = true; // Track visibility state
+  bool isVisible = true;
+  String? _token;
 
   @override
   void initState() {
     super.initState();
-    fetchCashSummary();
+    _loadToken();
     _animationController = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: 300),
@@ -45,32 +47,96 @@ class _CashSummaryWidgetState extends State<CashSummaryWidget>
     ).animate(_animationController);
   }
 
+  Future<void> _loadToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    _token = prefs.getString('token');
+    if (_token != null) {
+      fetchCashSummary();
+    } else {
+      _showError("Token is not available.");
+    }
+  }
+
   Future<void> fetchCashSummary() async {
-    // Get the current date
+    if (_token == null) {
+      _showError("Token is not available.");
+      return;
+    }
+
     final now = DateTime.now();
-
-    // Format the date to 'yyyy-MM-dd' and set the time to midnight for Startdate
     final String startDate = DateFormat('yyyy-MM-dd 00:00:00').format(now);
-
-    // Set the Enddate to the end of the day (23:59:59)
     final String endDate = DateFormat('yyyy-MM-dd 23:59:59').format(now);
 
-    final response = await http.get(Uri.parse(
-        'https://stageapp.livecodesolutions.co.ke/api/CashSummary?Company='
-            '${widget.companyId}&site=${widget.site}&User=${widget.userName}&Startdate=$startDate&Enddate=$endDate&RegNo={RegNo}&amount={amount}'
-    ));
+    final url = Uri.parse(
+        'https://stageapp.livecodesolutions.co.ke/api/CashSummary?Company=${widget.companyId}&site=${widget.site}&User=${widget.userName}&Startdate=$startDate&Enddate=$endDate&RegNo={RegNo}&amount={amount}'
+    );
 
-    if (response.statusCode == 200) {
-      setState(() {
-        cashSummary = json.decode(response.body);
-      });
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $_token',
+          'Content-Type': 'application/json',
+        },
+      );
 
-      // Print the fetched data on the terminal
-      print('Fetched Cash Summary: $cashSummary');
-    } else {
-      // Handle error
-      print('Failed to fetch cash summary');
+      if (response.statusCode == 200) {
+        setState(() {
+          cashSummary = json.decode(response.body);
+        });
+        print('Fetched Cash Summary: $cashSummary');
+      } else {
+        _handleHttpError(response.statusCode);
+      }
+    } catch (e) {
+      _handleSpecificError(e);
     }
+  }
+
+  void _handleHttpError(int statusCode) {
+    String errorMessage;
+    switch (statusCode) {
+      case 400:
+        errorMessage = "Bad request. Please check your request parameters.";
+        break;
+      case 401:
+        errorMessage = "Unauthorized. Please check your authentication token.";
+        break;
+      case 403:
+        errorMessage = "Forbidden. You don't have permission to access this resource.";
+        break;
+      case 404:
+        errorMessage = "Not found. The requested resource could not be found.";
+        break;
+      case 500:
+        errorMessage = "Internal server error. Please try again later.";
+        break;
+      default:
+        errorMessage = "Unexpected error occurred. Status Code: $statusCode";
+    }
+    _showError(errorMessage);
+    print('HTTP Error: $errorMessage');
+  }
+
+  void _handleSpecificError(Object e) {
+    String errorMessage;
+    if (e is http.ClientException) {
+      errorMessage = "Network error. Please check your internet connection.";
+    } else if (e is FormatException) {
+      errorMessage = "Data format error. Received invalid data.";
+    } else if (e is Exception) {
+      errorMessage = "An unexpected error occurred: $e";
+    } else {
+      errorMessage = "An unknown error occurred.";
+    }
+    _showError(errorMessage);
+    print('Specific Error: $errorMessage');
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   void toggleVisibility() {
@@ -192,18 +258,21 @@ class _CashSummaryWidgetState extends State<CashSummaryWidget>
     );
   }
 
-  // Helper function to calculate the total amount from cashSummary
   double calculateTotalAmount() {
     if (cashSummary == null || cashSummary!.isEmpty) {
       return 0.00;
     }
-    // Assuming cashSummary contains a list of amounts under the key 'amount'
-    // You may need to adjust this based on your actual data structure
     return cashSummary!.values.fold(0.00, (sum, item) {
       if (item is Map && item.containsKey('amount')) {
         return sum + (item['amount'] as num).toDouble();
       }
       return sum;
     });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 }
