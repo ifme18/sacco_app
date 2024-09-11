@@ -154,7 +154,7 @@ class _BusTicketWidgetState extends State<BusTicketWidget> {
 
         setState(() {
           _siteOptions = data
-              .map<String>((item) => item['Site'].toString())
+              .map<String>((item) => item['Descr'].toString())
               .where((site) => site != widget.Site)
               .toList();
 
