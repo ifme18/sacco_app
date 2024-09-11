@@ -41,7 +41,6 @@ dev_dependencies:
     sdk: flutter
   intl: ^0.17.0
   shared_preferences: ^2.1.0
-  blue_thermal_printer: ^1.2.3
   uuid: ^3.0.6
   shimmer: ^2.0.0
   firebase_core: ^2.7.0
