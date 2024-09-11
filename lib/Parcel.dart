@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
+import 'package:sacco_app/Attachprcel.dart';
+import 'package:sacco_app/Receiveparcel.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:esc_pos_bluetooth/esc_pos_bluetooth.dart';
@@ -531,6 +533,7 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
                           });
                         }),
                         _buildTextField(_collectedByController, "Collected By", TextInputType.text),
+
                         SizedBox(height: 20),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -568,8 +571,39 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
           );
         },
       ),
+      // Floating Action Buttons
+      floatingActionButton: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            heroTag: 'fab1',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => ParcelScreen(companyID:
+                widget.CompanyCode, site: widget.Site)), // replace ScreenOne with your actual screen widget
+              );
+            },
+            child: Icon(Icons.navigation), // You can replace with any icon
+            tooltip: 'Go to Screen 1',
+          ),
+          SizedBox(width: 10), // spacing between buttons
+          FloatingActionButton(
+            heroTag: 'fab2',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => CollectedParcelsScreen(companyID: widget.CompanyCode , site: widget.Site)), // replace ScreenTwo with your actual screen widget
+              );
+            },
+            child: Icon(Icons.card_travel), // You can replace with any icon
+            tooltip: 'Go to Screen 2',
+          ),
+        ],
+      ),
     );
   }
+
 
   // Build text fields
   Widget _buildTextField(TextEditingController controller, String label, TextInputType keyboardType) {
