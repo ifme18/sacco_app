@@ -170,7 +170,7 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
         final List<dynamic> data = jsonDecode(response.body);
         setState(() {
           _siteOptions = data
-              .map<String>((item) => item['Site'].toString())
+              .map<String>((item) => item['Descr'].toString())
               .where((site) => site != widget.Site)
               .toList();
 
