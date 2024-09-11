@@ -1,8 +1,11 @@
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:blue_thermal_printer/blue_thermal_printer.dart';
+import 'package:esc_pos_bluetooth/esc_pos_bluetooth.dart';
+import 'package:esc_pos_utils/esc_pos_utils.dart';
+
 
 const String BASE_URL = 'https://stageapp.livecodesolutions.co.ke';
 const String URL_VEHICLES = '$BASE_URL/api/Vehicles?Company={Company}';
@@ -53,13 +56,21 @@ class _BusTicketWidgetState extends State<BusTicketWidget> {
   bool _isLoadingVehicles = false;
   bool _isLoadingPayment = false;
 
-  BlueThermalPrinter printer = BlueThermalPrinter.instance;
-  List<BluetoothDevice> devices = [];
-  BluetoothDevice? selectedDevice;
+  PrinterBluetoothManager printerManager = PrinterBluetoothManager();
+  List<PrinterBluetooth> devices = [];
+  PrinterBluetooth? selectedPrinter;
+  bool isScanning = false;
+
 
   @override
   void initState() {
     super.initState();
+    _initializeControllers();
+    _loadToken();
+    _initializePrinter();
+  }
+
+  void _initializeControllers() {
     _locationController = TextEditingController();
     _destinationController = TextEditingController();
     _amountController = TextEditingController();
@@ -69,12 +80,15 @@ class _BusTicketWidgetState extends State<BusTicketWidget> {
     _seatNoController = TextEditingController();
     _extrachargeController = TextEditingController();
     _phoneController = TextEditingController();
-
-    _loadToken();
   }
 
   @override
   void dispose() {
+    _disposeControllers();
+    super.dispose();
+  }
+
+  void _disposeControllers() {
     _locationController.dispose();
     _destinationController.dispose();
     _amountController.dispose();
@@ -84,7 +98,6 @@ class _BusTicketWidgetState extends State<BusTicketWidget> {
     _seatNoController.dispose();
     _extrachargeController.dispose();
     _phoneController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadToken() async {
@@ -141,7 +154,7 @@ class _BusTicketWidgetState extends State<BusTicketWidget> {
 
         setState(() {
           _siteOptions = data
-              .map<String>((item) => item['Descr'].toString())
+              .map<String>((item) => item['Site'].toString())
               .where((site) => site != widget.Site)
               .toList();
 
@@ -305,13 +318,27 @@ class _BusTicketWidgetState extends State<BusTicketWidget> {
     }
   }
 
+  void _initializePrinter() {
+    printerManager.scanResults.listen((devices) {
+      setState(() {
+        this.devices = devices;
+      });
+    });
+  }
   Future<void> _scanBluetoothDevices() async {
-    devices = await printer.getBondedDevices();
-    setState(() {});
+    setState(() {
+      isScanning = true;
+    });
+    printerManager.startScan(Duration(seconds: 4));
+    await Future.delayed(Duration(seconds: 4));
+    setState(() {
+      isScanning = false;
+    });
   }
 
   Future<void> _printTicket() async {
-    selectedDevice = await showDialog<BluetoothDevice>(
+    // Show dialog to select Bluetooth printer
+    selectedPrinter = await showDialog<PrinterBluetooth>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
@@ -342,26 +369,38 @@ class _BusTicketWidgetState extends State<BusTicketWidget> {
       },
     );
 
-    if (selectedDevice == null) {
+    if (selectedPrinter == null) {
       _showError("No Bluetooth printer selected.");
       return;
     }
 
     try {
-      await printer.connect(selectedDevice!);
+      // Generate ESC/POS commands
+      final profile = await CapabilityProfile.load();
+      final generator = Generator(PaperSize.mm80, profile);
 
-      await printer.printCustom("Company: ${widget.CompanyCode}", 2, 1);
-      await printer.printCustom("Vehicle: $_selectedVehicle", 2, 1);
-      await printer.printCustom("Amount Paid: ${_amountController.text}", 2, 1);
-      await printer.printCustom("Served By: ${widget.userFullName}", 2, 1);
-      await printer.printCustom("Customer Care:${widget.phone}",2,1);
-      await printer.paperCut();
+      List<int> bytes = [];
 
-      await printer.disconnect();
+      // Add ticket details to print
+      bytes += generator.text("Company: ${widget.CompanyCode}", styles: PosStyles(align: PosAlign.center, height: PosTextSize.size2));
+      bytes += generator.text("Vehicle: $_selectedVehicle", styles: PosStyles(align: PosAlign.center));
+      bytes += generator.text("Amount Paid: ${_amountController.text}", styles: PosStyles(align: PosAlign.center));
+      bytes += generator.text("Served By: ${widget.userFullName}", styles: PosStyles(align: PosAlign.center));
+      bytes += generator.text("Customer Care: ${widget.phone}", styles: PosStyles(align: PosAlign.center));
+
+      bytes += generator.feed(2);
+      bytes += generator.cut();
+
+      // Select printer and print ticket
+      printerManager.selectPrinter(selectedPrinter!); // No need to await here
+      final result = await printerManager.printTicket(bytes);
+      print("Print result: $result");
+      _showSuccess("Ticket printed successfully");
     } catch (e) {
       _showError("An error occurred while printing: $e");
     }
   }
+
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(

@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:esc_pos_printer/esc_pos_printer.dart';
 import 'package:esc_pos_utils/esc_pos_utils.dart';
-import 'package:blue_thermal_printer/blue_thermal_printer.dart';
+import 'package:esc_pos_bluetooth/esc_pos_bluetooth.dart';
 
 const String BASE_URL = 'https://stageapp.livecodesolutions.co.ke';
 const String URL_PAYMENT = '$BASE_URL/api/lipafare';
@@ -37,9 +36,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
   late TextEditingController _commissionController;
   late TextEditingController _ownerController;
 
-  BlueThermalPrinter printer = BlueThermalPrinter.instance; // Instance of the Bluetooth printer
-  List<BluetoothDevice> devices = [];
-  BluetoothDevice? selectedDevice;
+  PrinterBluetoothManager printerManager = PrinterBluetoothManager();
+  List<PrinterBluetooth> devices = [];
+  PrinterBluetooth? selectedPrinter;
 
   String? _token;
   bool _isLoading = false;
@@ -58,6 +57,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     super.initState();
     _initializeControllers();
     _loadTokenAndCompanyDetails();
+    _initializePrinter();
   }
 
   void _initializeControllers() {
@@ -66,8 +66,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
     _ownerController = TextEditingController();
   }
 
+  void _initializePrinter() {
+    printerManager.scanResults.listen((devices) {
+      setState(() {
+        this.devices = devices;
+      });
+    });
+  }
+
   @override
   void dispose() {
+    printerManager.stopScan();
     _disposeControllers();
     super.dispose();
   }
@@ -207,7 +216,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         _showSuccess("Payment submitted successfully!");
-        await _printInvoice(); // Call print here if the response is 200 or 201
+        await _printInvoice();
       } else {
         final Map<String, dynamic> responseBody = jsonDecode(response.body);
         final String errorMessage = responseBody['Message'] ?? 'Unknown error occurred';
@@ -226,66 +235,69 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Future<void> _printInvoice() async {
-    if (selectedDevice == null) {
+    if (selectedPrinter == null) {
       _showError("No Bluetooth printer selected.");
       return;
     }
 
     try {
-      // Attempt to connect to the selected Bluetooth printer
-      await printer.connect(selectedDevice!);
+      // Get the printer's capabilities
+      var profile = await CapabilityProfile.load();
+      var generator = Generator(PaperSize.mm80, profile);
 
-      // Create a new ESC/POS printer profile
-      final profile = await CapabilityProfile.load();
-      final escPosPrinter = NetworkPrinter(PaperSize.mm80, profile);
+      // Generate the ticket
+      List<int> ticket = [];
+      ticket += generator.text('Company: ${widget.CompanyName}',
+          styles: PosStyles(align: PosAlign.center));
+      ticket += generator.text('Vehicle: ${_selectedVehicle ?? 'N/A'}');
+      ticket += generator.text('Amount Paid: ${_amountController.text}');
+      ticket += generator.text('Commission: ${_commissionController.text}');
+      ticket += generator.text('Served By: ${widget.userFullName}');
+      ticket += generator.text('Customer Care: ${widget.phone}');
+      ticket += generator.feed(2);
+      ticket += generator.cut();
 
-      // Replace with your printer's IP address and port
-      final String printerIp = "192.168.1.100"; // Replace with your printer's IP address
-      final int port = 9100; // Default port for thermal printers
+      // Send print job
+      printerManager.selectPrinter(selectedPrinter!);
+      await printerManager.printTicket(ticket); // Since this returns void, no need to check for result
 
-      final res = await escPosPrinter.connect(printerIp, port: port);
-
-      if (res == PosPrintResult.success) {
-        // Print the invoice content
-        escPosPrinter.text('Company: ${widget.CompanyName}', styles: PosStyles(fontType: PosFontType.fontB, align: PosAlign.center));
-        escPosPrinter.text('Vehicle: ${_selectedVehicle ?? 'N/A'}', styles: PosStyles(fontType: PosFontType.fontA, align: PosAlign.center));
-        escPosPrinter.text('Amount Paid: ${_amountController.text}', styles: PosStyles(fontType: PosFontType.fontB, align: PosAlign.center));
-        escPosPrinter.text('Commission: ${_commissionController.text}', styles: PosStyles(fontType: PosFontType.fontA, align: PosAlign.center));
-        escPosPrinter.text('Served By: ${widget.userFullName}', styles: PosStyles(fontType: PosFontType.fontA, align: PosAlign.center));
-        escPosPrinter.text('Customer Care${widget.phone}',styles:PosStyles(fontType: PosFontType.fontA, align:PosAlign.center ),);
-        escPosPrinter.cut();
-      } else {
-        _showError("Could not connect to the printer. Please check the IP and port.");
-      }
+      // Assuming printTicket() does not throw an exception on failure
+      _showSuccess("Invoice printed successfully!");
     } catch (e) {
       _showError("An error occurred while printing: $e");
     }
   }
 
-  Future<void> _scanBluetoothDevices() async {
-    try {
-      devices = await printer.getBondedDevices();
-      setState(() {});
-    } catch (e) {
-      _showError("Error scanning for Bluetooth devices: $e");
-    }
+
+
+  void _scanBluetoothDevices() {
+    printerManager.startScan(Duration(seconds: 4));
   }
 
   Future<void> _selectPrinter(BuildContext context) async {
-    selectedDevice = await showDialog<BluetoothDevice>(
+    _scanBluetoothDevices();
+
+    selectedPrinter = await showDialog<PrinterBluetooth>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text('Select Bluetooth Printer'),
           content: Container(
             width: double.maxFinite,
-            child: ListView.builder(
-              itemCount: devices.length,
-              itemBuilder: (context, index) {
-                return ListTile(
-                  title: Text(devices[index].name ?? ""),
-                  onTap: () {
-                    Navigator.of(context).pop(devices[index]);
+            child: StreamBuilder<List<PrinterBluetooth>>(
+              stream: printerManager.scanResults,
+              initialData: [],
+              builder: (context, snapshot) {
+                return ListView.builder(
+                  itemCount: snapshot.data?.length ?? 0,
+                  itemBuilder: (context, index) {
+                    return ListTile(
+                      title: Text(snapshot.data![index].name ?? ""),
+                      subtitle: Text(snapshot.data![index].address ?? ""),
+                      onTap: () {
+                        Navigator.of(context).pop(snapshot.data![index]);
+                      },
+                    );
                   },
                 );
               },
@@ -294,17 +306,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
           actions: [
             TextButton(
               onPressed: () {
-                _scanBluetoothDevices(); // Allow rescan
+                _scanBluetoothDevices();
               },
-              child: Text('Scan'),
+              child: Text('Rescan'),
             ),
           ],
         );
       },
     );
 
-    if (selectedDevice != null) {
-      _showSuccess("Selected printer: ${selectedDevice!.name}");
+    if (selectedPrinter != null) {
+      _showSuccess("Selected printer: ${selectedPrinter!.name}");
     }
   }
 
@@ -336,161 +348,168 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Payment'),
-        backgroundColor: Colors.blueAccent,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.info_outline),
-            onPressed: () {
-              // Handle info icon press
-            },
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Center(
-          child: Container(
-            margin: EdgeInsets.all(16.0),
-            padding: EdgeInsets.all(16.0),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.5),
-                  spreadRadius: 5,
-                  blurRadius: 7,
-                  offset: Offset(0, 3),
-                ),
-              ],
+        appBar: AppBar(
+          title: Text('Payment'),
+          backgroundColor: Colors.blueAccent,
+          actions: [
+            IconButton(
+              icon: Icon(Icons.info_outline),
+              onPressed: () {
+                // Handle info icon press
+              },
             ),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextFormField(
-                    controller: _amountController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Amount',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                    validator: (value) => value == null || value.isEmpty ? 'Amount is required' : null,
-                  ),
-                  SizedBox(height: 16),
-                  TextFormField(
-                    controller: _commissionController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Commission',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                    validator: (value) => value == null || value.isEmpty ? 'Commission is required' : null,
-                  ),
-                  SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: _selectedPayment,
-                    hint: Text('Select Payment Mode'),
-                    items: _Payment.map((payment) {
-                      return DropdownMenuItem<String>(
-                        value: payment['PaymentMode'],
-                        child: Text(payment['PaymentMode']),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedPayment = value;
-                      });
-                    },
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) => value == null ? 'Payment mode is required' : null,
-                  ),
-                  SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: _selectedTransactionType,
-                    hint: Text('Select Transaction Type'),
-                    items: _transactionTypes.map((transactionType) {
-                      return DropdownMenuItem<String>(
-                        value: transactionType['Code'],
-                        child: Text(transactionType['Descr']),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedTransactionType = value;
-                      });
-                    },
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) => value == null ? 'Transaction type is required' : null,
-                  ),
-                  SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: _selectedVehicle,
-                    hint: Text('Select Vehicle'),
-                    items: _vehicles.map((vehicle) {
-                      return DropdownMenuItem<String>(
-                        value: vehicle['RegNo'],
-                        child: Text(vehicle['RegNo']),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedVehicle = value;
+          ],
+        ),
+        body: SingleChildScrollView(
+        child: Center(
+        child: Container(
+        margin: EdgeInsets.all(16.0),
+    padding: EdgeInsets.all(16.0),
+    decoration: BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(12),
+    boxShadow: [
+    BoxShadow(
+    color: Colors.grey.withOpacity(0.5),
+    spreadRadius: 5,
+    blurRadius: 7,
+    offset: Offset(0, 3),
+    ),
+    ],
+    ),
+    child: Form(
+    key: _formKey,
+    child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+    TextFormField(
+    controller: _amountController,
+    keyboardType: TextInputType.number,
+    decoration: InputDecoration(
+    labelText: 'Amount',
+    border: OutlineInputBorder(),
+    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    ),
+    validator: (value) => value == null || value.isEmpty ? 'Amount is required' : null,
+    ),
+    SizedBox(height: 16),
+    TextFormField(
+    controller: _commissionController,
+    keyboardType: TextInputType.number,
+    decoration: InputDecoration(
+    labelText: 'Commission',
+    border: OutlineInputBorder(),
+    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    ),
+    validator: (value) => value == null || value.isEmpty ? 'Commission is required' : null,
+    ),
+    SizedBox(height: 16),
+    DropdownButtonFormField<String>(
+    value: _selectedPayment,
+    hint: Text('Select Payment Mode'),
+    items: _Payment.map((payment) {
+    return DropdownMenuItem<String>(
+    value: payment['PaymentMode'],
+    child: Text(payment['PaymentMode']),
+    );
+    }).toList(),
+    onChanged: (value) {
+    setState(() {
+    _selectedPayment = value;
+    });
+    },
+    decoration: InputDecoration(
+    border: OutlineInputBorder(),
+    ),
+    validator: (value) => value == null ? 'Payment mode is required' : null,
+    ),
+    SizedBox(height: 16),
+    DropdownButtonFormField<String>(
+    value: _selectedTransactionType,
+    hint: Text('Select Transaction Type'),
+    items: _transactionTypes.map((transactionType) {
+    return DropdownMenuItem<String>(
+    value: transactionType['Code'],
+    child: Text(transactionType['Descr']),
+    );
+    }).toList(),
+    onChanged: (value) {
+    setState(() {
+    _selectedTransactionType = value;
+    });
+    },
+    decoration: InputDecoration(
+    border: OutlineInputBorder(),
+    ),
+      validator: (value) => value == null ? 'Transaction type is required' : null,
+    ),
+      SizedBox(height: 16),
+      DropdownButtonFormField<String>(
+        value: _selectedVehicle,
+        hint: Text('Select Vehicle'),
+        items: _vehicles.map((vehicle) {
+          return DropdownMenuItem<String>(
+            value: vehicle['RegNo'],
+            child: Text(vehicle['RegNo']),
+          );
+        }).toList(),
+        onChanged: (value) {
+          setState(() {
+            _selectedVehicle = value;
 
-                        // Populate the owner ID field from the selected vehicle
-                        final selectedVehicle = _vehicles.firstWhere((vehicle) => vehicle['RegNo'] == value);
-                        _ownerController.text = selectedVehicle['Owner'] ?? 'N/A';
-                      });
-                    },
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) => value == null ? 'Vehicle is required' : null,
-                  ),
-                  SizedBox(height: 16),
-                  TextFormField(
-                    controller: _ownerController,
-                    decoration: InputDecoration(
-                      labelText: 'Owner ID',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                    readOnly: true,
-                  ),
-                  SizedBox(height: 16),
-                  if (_isLoading)
-                    Center(child: CircularProgressIndicator())
-                  else
-                    ElevatedButton(
-                      onPressed: _submitPayment,
-                      child: Text('Submit Payment'),
-                      style: ElevatedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 14),
-                        backgroundColor: Colors.blueAccent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => _selectPrinter(context), // Opens the printer selection dialog
-                    child: Text('Select Bluetooth Printer'),
-                  ),
-                ],
-              ),
+            // Populate the owner ID field from the selected vehicle
+            final selectedVehicle = _vehicles.firstWhere((vehicle) => vehicle['RegNo'] == value);
+            _ownerController.text = selectedVehicle['Owner'] ?? 'N/A';
+          });
+        },
+        decoration: InputDecoration(
+          border: OutlineInputBorder(),
+        ),
+        validator: (value) => value == null ? 'Vehicle is required' : null,
+      ),
+      SizedBox(height: 16),
+      TextFormField(
+        controller: _ownerController,
+        decoration: InputDecoration(
+          labelText: 'Owner ID',
+          border: OutlineInputBorder(),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        readOnly: true,
+      ),
+      SizedBox(height: 16),
+      if (_isLoading)
+        Center(child: CircularProgressIndicator())
+      else
+        ElevatedButton(
+          onPressed: _submitPayment,
+          child: Text('Submit Payment'),
+          style: ElevatedButton.styleFrom(
+            padding: EdgeInsets.symmetric(vertical: 14),
+            backgroundColor: Colors.blueAccent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
             ),
           ),
         ),
+      SizedBox(height: 16),
+      ElevatedButton(
+        onPressed: () => _selectPrinter(context),
+        child: Text('Select Bluetooth Printer'),
+        style: ElevatedButton.styleFrom(
+          padding: EdgeInsets.symmetric(vertical: 14),
+          backgroundColor: Colors.greenAccent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
       ),
+    ],
+    ),
+    ),
+        ),
+        ),
+        ),
     );
   }
 }

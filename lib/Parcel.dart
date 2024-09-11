@@ -3,7 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:blue_thermal_printer/blue_thermal_printer.dart';
+import 'package:esc_pos_bluetooth/esc_pos_bluetooth.dart';
+import 'package:esc_pos_utils/esc_pos_utils.dart';
+
 
 // Constants for API URLs
 const String BASE_URL = 'https://stageapp.livecodesolutions.co.ke';
@@ -61,9 +63,9 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
   String? _token;
 
   // Bluetooth printer setup
-  BlueThermalPrinter printer = BlueThermalPrinter.instance;
-  List<BluetoothDevice> devices = [];
-  BluetoothDevice? selectedDevice;
+  PrinterBluetoothManager printerManager = PrinterBluetoothManager();
+  List<PrinterBluetooth> devices = [];
+  PrinterBluetooth? selectedPrinter;
   bool isScanning = false;
 
   @override
@@ -300,8 +302,11 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
 
   // Initialize Bluetooth printer
   Future<void> _initializePrinter() async {
-    devices = await printer.getBondedDevices();
-    setState(() {});
+    printerManager.scanResults.listen((devices) {
+      setState(() {
+        this.devices = devices;
+      });
+    });
   }
 
   // Scan for Bluetooth devices
@@ -309,24 +314,27 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
     setState(() {
       isScanning = true;
     });
-    devices = await printer.getBondedDevices();
+    printerManager.startScan(Duration(seconds: 4));
+    await Future.delayed(Duration(seconds: 4));
     setState(() {
       isScanning = false;
     });
   }
 
   // Connect to selected Bluetooth printer
-  Future<void> _connectToPrinter(BluetoothDevice device) async {
+  Future<void> _connectToPrinter(PrinterBluetooth printer) async {
     try {
-      await printer.connect(device);
+      printerManager.selectPrinter(printer); // No need to await as it returns void
       setState(() {
-        selectedDevice = device;
+        selectedPrinter = printer;
       });
-      _showSuccess("Connected to ${device.name}");
+      _showSuccess("Connected to ${printer.name}");
     } catch (e) {
       _showError("Failed to connect: $e");
     }
   }
+
+
 
   // Show print dialog
   void _showPrintDialog(Map<String, dynamic> parcelData) {
@@ -342,17 +350,17 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text('Select a printer:'),
-                  DropdownButton<BluetoothDevice>(
-                    value: selectedDevice,
-                    items: devices.map((device) {
+                  DropdownButton<PrinterBluetooth>(
+                    value: selectedPrinter,
+                    items: devices.map((printer) {
                       return DropdownMenuItem(
-                        value: device,
-                        child: Text(device.name ?? ""),
+                        value: printer,
+                        child: Text(printer.name ?? ""),
                       );
                     }).toList(),
-                    onChanged: (BluetoothDevice? value) {
+                    onChanged: (PrinterBluetooth? value) {
                       setState(() {
-                        selectedDevice = value;
+                        selectedPrinter = value;
                       });
                     },
                   ),
@@ -397,7 +405,7 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
                   child: Text('Print'),
                   onPressed: () {
                     Navigator.of(context).pop();
-                    if (selectedDevice != null) {
+                    if (selectedPrinter != null) {
                       _printParcel(parcelData, copies);
                     } else {
                       _showError("Please select a printer");
@@ -414,38 +422,40 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
 
   // Print the parcel details
   Future<void> _printParcel(Map<String, dynamic> parcelData, int copies) async {
-    if (selectedDevice == null) {
+    if (selectedPrinter == null) {
       _showError("No printer selected. Please select a printer.");
       return;
     }
 
     try {
-      await printer.connect(selectedDevice!);
+      // Generate ESC/POS commands
+      final profile = await CapabilityProfile.load();
+      final generator = Generator(PaperSize.mm80, profile);
+
+      List<int> bytes = [];
 
       for (int i = 0; i < copies; i++) {
-        if (i > 0) await Future.delayed(Duration(seconds: 1)); // Small delay between prints
+        if (i > 0) bytes += generator.feed(2);
 
-        await printer.printNewLine();
-        await printer.printCustom("Parcel Receipt", 3, 1); // Print header
-        await printer.printNewLine();
+        bytes += generator.text('Parcel Receipt', styles: PosStyles(align: PosAlign.center, height: PosTextSize.size2, width: PosTextSize.size2));
+        bytes += generator.feed(1);
 
-        // Print Parcel details
-        await printer.printCustom("Parcel ID: ${parcelData['ParcelID']}", 2, 0);
-        await printer.printCustom("Town: ${parcelData['Town']}", 2, 0);
-        await printer.printCustom("Amount Paid: ${parcelData['Amount']}", 2, 0);
-        await printer.printCustom("Commission: ${parcelData['Commission']}", 2, 0);
-        await printer.printCustom("Served by: ${parcelData['SystemAdminName']}", 2, 0);
-        await printer.printCustom(" Customer care:${widget.phone}",2,0);
-        await printer.printCustom("Date: ${parcelData['Date']}", 2, 0);
+        bytes += generator.text('Parcel ID: ${parcelData['ParcelID']}');
+        bytes += generator.text('Town: ${parcelData['Town']}');
+        bytes += generator.text('Amount Paid: ${parcelData['Amount']}');
+        bytes += generator.text('Commission: ${parcelData['Commission']}');
+        bytes += generator.text('Served by: ${parcelData['SystemAdminName']}');
+        bytes += generator.text('Customer care: ${widget.phone}');
+        bytes += generator.text('Date: ${parcelData['Date']}');
 
-        await printer.printNewLine();
-        await printer.printCustom("Thank you for your business!", 2, 1);
-        await printer.printNewLine();
-        await printer.printNewLine();
-        await printer.paperCut();
+        bytes += generator.feed(1);
+        bytes += generator.text('Thank you for your business!', styles: PosStyles(align: PosAlign.center));
+        bytes += generator.feed(2);
+        bytes += generator.cut();
       }
 
-      await printer.disconnect();
+      // Send print job
+      await printerManager.printTicket(bytes);
       _showSuccess("Printed $copies cop${copies > 1 ? 'ies' : 'y'} successfully");
     } catch (e) {
       _showError("Failed to print: $e");

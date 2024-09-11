@@ -121,6 +121,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.8"
+  esc_pos_bluetooth:
+    dependency: "direct dev"
+    description:
+      name: esc_pos_bluetooth
+      sha256: "46455b48afeeb5eabdfdde59697e0328247df6537f6d5e8d8f6664975e886e4b"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.4.1"
   esc_pos_printer:
     dependency: "direct dev"
     description:
@@ -190,6 +198,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_bluetooth_basic:
+    dependency: transitive
+    description:
+      name: flutter_bluetooth_basic
+      sha256: e81a2c5e9340660b4832831b33d9f3c1f1b098c8f924bc1dafef9702c5985921
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.7"
   flutter_lints:
     dependency: "direct dev"
     description:
@@ -272,6 +288,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.6.7"
+  json_annotation:
+    dependency: transitive
+    description:
+      name: json_annotation
+      sha256: "1ce844379ca14835a50d2f019a3099f419082cfdd231cd86a142af94dd5c6bb1"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.9.0"
   leak_tracker:
     dependency: transitive
     description:
@@ -384,6 +408,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.8"
+  rxdart:
+    dependency: transitive
+    description:
+      name: rxdart
+      sha256: "2ef8b4e91cb3b55d155e0e34eeae0ac7107974e451495c955ac04ddee8cc21fd"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.26.0"
   shared_preferences:
     dependency: "direct dev"
     description:
