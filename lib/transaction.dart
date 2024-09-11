@@ -68,7 +68,7 @@ class _CashSummaryWidgetState extends State<CashSummaryWidget>
     final String endDate = DateFormat('yyyy-MM-dd 23:59:59').format(now);
 
     final url = Uri.parse(
-        'https://stageapp.livecodesolutions.co.ke/api/CashSummary?Company=${widget.companyId}&site=${widget.site}&User=${widget.userName}&Startdate=$startDate&Enddate=$endDate&RegNo={RegNo}&amount={amount}'
+        'https://stageapp.livecodesolutions.co.ke/api/CashSummary?Company=${widget.companyId}&site=${widget.site}&User=254723759494&Startdate=$startDate&Enddate=$endDate'
     );
 
     try {
@@ -88,6 +88,15 @@ class _CashSummaryWidgetState extends State<CashSummaryWidget>
       } else {
         _handleHttpError(response.statusCode);
       }
+      if (response.body.isNotEmpty) {
+        setState(() {
+          cashSummary = json.decode(response.body);
+        });
+        print('Fetched Cash Summary: $cashSummary');
+      } else {
+        _showError("Empty response received.");
+      }
+
     } catch (e) {
       _handleSpecificError(e);
     }
@@ -123,7 +132,7 @@ class _CashSummaryWidgetState extends State<CashSummaryWidget>
     if (e is http.ClientException) {
       errorMessage = "Network error. Please check your internet connection.";
     } else if (e is FormatException) {
-      errorMessage = "Data format error. Received invalid data.";
+      errorMessage = "Data format error. Received invalid data: ${e.message}";
     } else if (e is Exception) {
       errorMessage = "An unexpected error occurred: $e";
     } else {
@@ -132,6 +141,7 @@ class _CashSummaryWidgetState extends State<CashSummaryWidget>
     _showError(errorMessage);
     print('Specific Error: $errorMessage');
   }
+
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
