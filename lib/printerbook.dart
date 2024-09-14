@@ -4,16 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'dart:async';
 
-class PrinterScreen extends StatefulWidget {
-  final Map<String, dynamic> parcelData; // Accept parcel data to print
+class PrinterbookingScreen extends StatefulWidget {
+  final Map<String, dynamic> bookingData; // Accept parcel data to print
 
-  PrinterScreen({Key? key, required this.parcelData}) : super(key: key);
+  PrinterbookingScreen({Key? key, required this.bookingData}) : super(key: key);
 
   @override
   _PrinterScreenState createState() => _PrinterScreenState();
 }
 
-class _PrinterScreenState extends State<PrinterScreen> {
+class _PrinterScreenState extends State<PrinterbookingScreen> {
   PrinterManager printerManager = PrinterManager.instance;
   List<PrinterDevice> devices = [];
   PrinterDevice? selectedPrinter;
@@ -95,12 +95,12 @@ class _PrinterScreenState extends State<PrinterScreen> {
     String printContent = '''
 Parcel Receipt
 ------------------------------
-Parcel ID: ${widget.parcelData['ParcelID']}
-Amount Paid: ${widget.parcelData['Amount']}
-Commission: ${widget.parcelData['Commission']}
-Sender: ${widget.parcelData['SenderName']}
-Receiver: ${widget.parcelData['ReceiverName']}
-Date: ${widget.parcelData['Date']}
+Parcel ID: ${widget.bookingData['ParcelID']}
+Amount Paid: ${widget.bookingData['Amount']}
+Commission: ${widget.bookingData['Commission']}
+Sender: ${widget.bookingData['SenderName']}
+Receiver: ${widget.bookingData['ReceiverName']}
+Date: ${widget.bookingData['Date']}
 ------------------------------
 Thank you for using our service!
 ''';

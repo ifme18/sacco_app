@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:esc_pos_utils/esc_pos_utils.dart';
-import 'package:esc_pos_bluetooth/esc_pos_bluetooth.dart';
+
+
 
 const String BASE_URL = 'https://stageapp.livecodesolutions.co.ke';
 const String URL_PAYMENT = '$BASE_URL/api/lipafare';
@@ -36,9 +36,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
   late TextEditingController _commissionController;
   late TextEditingController _ownerController;
 
-  PrinterBluetoothManager printerManager = PrinterBluetoothManager();
-  List<PrinterBluetooth> devices = [];
-  PrinterBluetooth? selectedPrinter;
 
   String? _token;
   bool _isLoading = false;
@@ -57,7 +54,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     super.initState();
     _initializeControllers();
     _loadTokenAndCompanyDetails();
-    _initializePrinter();
+
   }
 
   void _initializeControllers() {
@@ -66,20 +63,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
     _ownerController = TextEditingController();
   }
 
-  void _initializePrinter() {
-    printerManager.scanResults.listen((devices) {
-      setState(() {
-        this.devices = devices;
-      });
-    });
-  }
 
-  @override
-  void dispose() {
-    printerManager.stopScan();
-    _disposeControllers();
-    super.dispose();
-  }
+
+
 
   void _disposeControllers() {
     _amountController.dispose();
@@ -216,7 +202,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         _showSuccess("Payment submitted successfully!");
-        await _printInvoice();
+
       } else {
         final Map<String, dynamic> responseBody = jsonDecode(response.body);
         final String errorMessage = responseBody['Message'] ?? 'Unknown error occurred';
@@ -234,91 +220,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  Future<void> _printInvoice() async {
-    if (selectedPrinter == null) {
-      _showError("No Bluetooth printer selected.");
-      return;
-    }
-
-    try {
-      // Get the printer's capabilities
-      var profile = await CapabilityProfile.load();
-      var generator = Generator(PaperSize.mm80, profile);
-
-      // Generate the ticket
-      List<int> ticket = [];
-      ticket += generator.text('Company: ${widget.CompanyName}',
-          styles: PosStyles(align: PosAlign.center));
-      ticket += generator.text('Vehicle: ${_selectedVehicle ?? 'N/A'}');
-      ticket += generator.text('Amount Paid: ${_amountController.text}');
-      ticket += generator.text('Commission: ${_commissionController.text}');
-      ticket += generator.text('Served By: ${widget.userFullName}');
-      ticket += generator.text('Customer Care: ${widget.phone}');
-      ticket += generator.feed(2);
-      ticket += generator.cut();
-
-      // Send print job
-      printerManager.selectPrinter(selectedPrinter!);
-      await printerManager.printTicket(ticket); // Since this returns void, no need to check for result
-
-      // Assuming printTicket() does not throw an exception on failure
-      _showSuccess("Invoice printed successfully!");
-    } catch (e) {
-      _showError("An error occurred while printing: $e");
-    }
-  }
 
 
 
-  void _scanBluetoothDevices() {
-    printerManager.startScan(Duration(seconds: 4));
-  }
 
-  Future<void> _selectPrinter(BuildContext context) async {
-    _scanBluetoothDevices();
 
-    selectedPrinter = await showDialog<PrinterBluetooth>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Select Bluetooth Printer'),
-          content: Container(
-            width: double.maxFinite,
-            child: StreamBuilder<List<PrinterBluetooth>>(
-              stream: printerManager.scanResults,
-              initialData: [],
-              builder: (context, snapshot) {
-                return ListView.builder(
-                  itemCount: snapshot.data?.length ?? 0,
-                  itemBuilder: (context, index) {
-                    return ListTile(
-                      title: Text(snapshot.data![index].name ?? ""),
-                      subtitle: Text(snapshot.data![index].address ?? ""),
-                      onTap: () {
-                        Navigator.of(context).pop(snapshot.data![index]);
-                      },
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                _scanBluetoothDevices();
-              },
-              child: Text('Rescan'),
-            ),
-          ],
-        );
-      },
-    );
 
-    if (selectedPrinter != null) {
-      _showSuccess("Selected printer: ${selectedPrinter!.name}");
-    }
-  }
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(

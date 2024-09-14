@@ -5,9 +5,9 @@ import 'Attachprcel.dart';
 import 'Receiveparcel.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:esc_pos_bluetooth/esc_pos_bluetooth.dart';
-import 'package:esc_pos_utils/esc_pos_utils.dart';
 
+import 'package:esc_pos_utils/esc_pos_utils.dart';
+import 'printer.dart'; // Make sure to import the PrinterScreen class
 
 // Constants for API URLs
 const String BASE_URL = 'https://stageapp.livecodesolutions.co.ke';
@@ -64,12 +64,6 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
   String? _selectedSite;
   String? _token;
 
-  // Bluetooth printer setup
-  PrinterBluetoothManager printerManager = PrinterBluetoothManager();
-  List<PrinterBluetooth> devices = [];
-  PrinterBluetooth? selectedPrinter;
-  bool isScanning = false;
-
   @override
   void initState() {
     super.initState();
@@ -77,7 +71,6 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
     _fetchTokenAndData();
     _parcelId = _generateParcelId();
     _recId = _generateRecId();
-    _initializePrinter();
   }
 
   // Initialize text editing controllers
@@ -253,7 +246,7 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
       );
       if (response.statusCode == 200) {
         _showSuccess("Parcel submitted successfully.");
-        _showPrintDialog(parcelData);
+        // Here we could just print but we'll keep this dialog for now
       } else {
         print('Failed to submit parcel. Status: ${response.statusCode}');
         _showError("Failed to submit parcel. Status: ${response.statusCode}.");
@@ -300,168 +293,6 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
         ],
       ),
     );
-  }
-
-  // Initialize Bluetooth printer
-  Future<void> _initializePrinter() async {
-    printerManager.scanResults.listen((devices) {
-      setState(() {
-        this.devices = devices;
-      });
-    });
-  }
-
-  // Scan for Bluetooth devices
-  Future<void> _scanForDevices() async {
-    setState(() {
-      isScanning = true;
-    });
-    printerManager.startScan(Duration(seconds: 4));
-    await Future.delayed(Duration(seconds: 4));
-    setState(() {
-      isScanning = false;
-    });
-  }
-
-  // Connect to selected Bluetooth printer
-  Future<void> _connectToPrinter(PrinterBluetooth printer) async {
-    try {
-      printerManager.selectPrinter(printer); // No need to await as it returns void
-      setState(() {
-        selectedPrinter = printer;
-      });
-      _showSuccess("Connected to ${printer.name}");
-    } catch (e) {
-      _showError("Failed to connect: $e");
-    }
-  }
-
-
-
-  // Show print dialog
-  void _showPrintDialog(Map<String, dynamic> parcelData) {
-    int copies = 1;
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: Text('Print Parcel'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Select a printer:'),
-                  DropdownButton<PrinterBluetooth>(
-                    value: selectedPrinter,
-                    items: devices.map((printer) {
-                      return DropdownMenuItem(
-                        value: printer,
-                        child: Text(printer.name ?? ""),
-                      );
-                    }).toList(),
-                    onChanged: (PrinterBluetooth? value) {
-                      setState(() {
-                        selectedPrinter = value;
-                      });
-                    },
-                  ),
-                  ElevatedButton(
-                    onPressed: isScanning ? null : () async {
-                      await _scanForDevices();
-                      setState(() {});
-                    },
-                    child: Text(isScanning ? 'Scanning...' : 'Scan for printers'),
-                  ),
-                  SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Number of copies:'),
-                      DropdownButton<int>(
-                        value: copies,
-                        items: List.generate(5, (index) => index + 1).map((int value) {
-                          return DropdownMenuItem<int>(
-                            value: value,
-                            child: Text(value.toString()),
-                          );
-                        }).toList(),
-                        onChanged: (int? value) {
-                          setState(() {
-                            copies = value ?? 1;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  child: Text('Cancel'),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                ),
-                TextButton(
-                  child: Text('Print'),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    if (selectedPrinter != null) {
-                      _printParcel(parcelData, copies);
-                    } else {
-                      _showError("Please select a printer");
-                    }
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  // Print the parcel details
-  Future<void> _printParcel(Map<String, dynamic> parcelData, int copies) async {
-    if (selectedPrinter == null) {
-      _showError("No printer selected. Please select a printer.");
-      return;
-    }
-
-    try {
-      // Generate ESC/POS commands
-      final profile = await CapabilityProfile.load();
-      final generator = Generator(PaperSize.mm80, profile);
-
-      List<int> bytes = [];
-
-      for (int i = 0; i < copies; i++) {
-        if (i > 0) bytes += generator.feed(2);
-
-        bytes += generator.text('Parcel Receipt', styles: PosStyles(align: PosAlign.center, height: PosTextSize.size2, width: PosTextSize.size2));
-        bytes += generator.feed(1);
-
-        bytes += generator.text('Parcel ID: ${parcelData['ParcelID']}');
-        bytes += generator.text('Town: ${parcelData['Town']}');
-        bytes += generator.text('Amount Paid: ${parcelData['Amount']}');
-        bytes += generator.text('Commission: ${parcelData['Commission']}');
-        bytes += generator.text('Served by: ${parcelData['SystemAdminName']}');
-        bytes += generator.text('Customer care: ${widget.phone}');
-        bytes += generator.text('Date: ${parcelData['Date']}');
-
-        bytes += generator.feed(1);
-        bytes += generator.text('Thank you for your business!', styles: PosStyles(align: PosAlign.center));
-        bytes += generator.feed(2);
-        bytes += generator.cut();
-      }
-
-      // Send print job
-      await printerManager.printTicket(bytes);
-      _showSuccess("Printed $copies cop${copies > 1 ? 'ies' : 'y'} successfully");
-    } catch (e) {
-      _showError("Failed to print: $e");
-    }
   }
 
   @override
@@ -542,23 +373,28 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
                               onPressed: _submitParcel,
                               child: Text("Submit"),
                             ),
+                            // Navigate to PrinterScreen
+                            // In ParcelEntryDialog
                             ElevatedButton(
                               onPressed: () {
-                                if (_formKey.currentState!.validate()) {
-                                  final double amount = double.parse(_amountController.text);
-                                  final double commission = double.parse(_commissionController.text);
-                                  final parcelData = {
-                                    'ParcelID': _parcelId,
-                                    'Amount': amount + commission,
-                                    'Commission': commission,
-                                    'SystemAdminName': widget.systemAdminName,
-                                    'Date': _dateController.text,
-                                    'Town': _townController.text,
-                                  };
-                                  _showPrintDialog(parcelData);
-                                }
+                                final parcelDataToPrint = {
+                                  'ParcelID': _parcelId,
+                                  'Amount': double.parse(_amountController.text) + double.parse(_commissionController.text),
+                                  'Commission': double.parse(_commissionController.text),
+                                  'SenderName': _senderNameController.text,
+                                  'ReceiverName': _receiverNameController.text,
+                                  'Date': _dateController.text,
+                                  // Add any other parcel-specific details here
+                                };
+
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => PrinterScreen(parcelData: parcelDataToPrint), // Pass the parcel data
+                                  ),
+                                );
                               },
-                              child: Text("Print"),
+                              child: Text("Select Printer"),
                             ),
                           ],
                         ),
@@ -580,30 +416,28 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => ParcelScreen(companyID:
-                widget.CompanyCode, site: widget.Site)), // replace ScreenOne with your actual screen widget
+                MaterialPageRoute(builder: (context) => ParcelScreen(companyID: widget.CompanyCode, site: widget.Site)),
               );
             },
-            child: Icon(Icons.navigation), // You can replace with any icon
+            child: Icon(Icons.navigation),
             tooltip: 'Go to Screen 1',
           ),
-          SizedBox(width: 10), // spacing between buttons
+          SizedBox(width: 10),
           FloatingActionButton(
             heroTag: 'fab2',
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => CollectedParcelsScreen(companyID: widget.CompanyCode , site: widget.Site)), // replace ScreenTwo with your actual screen widget
+                MaterialPageRoute(builder: (context) => CollectedParcelsScreen(companyID: widget.CompanyCode, site: widget.Site)),
               );
             },
-            child: Icon(Icons.card_travel), // You can replace with any icon
+            child: Icon(Icons.card_travel),
             tooltip: 'Go to Screen 2',
           ),
         ],
       ),
     );
   }
-
 
   // Build text fields
   Widget _buildTextField(TextEditingController controller, String label, TextInputType keyboardType) {

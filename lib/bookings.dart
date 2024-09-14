@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:esc_pos_bluetooth/esc_pos_bluetooth.dart';
-import 'package:esc_pos_utils/esc_pos_utils.dart';
+
 
 
 const String BASE_URL = 'https://stageapp.livecodesolutions.co.ke';
@@ -56,10 +55,6 @@ class _BusTicketWidgetState extends State<BusTicketWidget> {
   bool _isLoadingVehicles = false;
   bool _isLoadingPayment = false;
 
-  PrinterBluetoothManager printerManager = PrinterBluetoothManager();
-  List<PrinterBluetooth> devices = [];
-  PrinterBluetooth? selectedPrinter;
-  bool isScanning = false;
 
 
   @override
@@ -67,7 +62,7 @@ class _BusTicketWidgetState extends State<BusTicketWidget> {
     super.initState();
     _initializeControllers();
     _loadToken();
-    _initializePrinter();
+
   }
 
   void _initializeControllers() {
@@ -307,7 +302,7 @@ class _BusTicketWidgetState extends State<BusTicketWidget> {
           print("Ticket booking was successful.");
 
           // Call the print function after successful booking
-          await _printTicket();
+
         } else {
           _handleHttpError(response.statusCode);
         }
@@ -318,88 +313,9 @@ class _BusTicketWidgetState extends State<BusTicketWidget> {
     }
   }
 
-  void _initializePrinter() {
-    printerManager.scanResults.listen((devices) {
-      setState(() {
-        this.devices = devices;
-      });
-    });
-  }
-  Future<void> _scanBluetoothDevices() async {
-    setState(() {
-      isScanning = true;
-    });
-    printerManager.startScan(Duration(seconds: 4));
-    await Future.delayed(Duration(seconds: 4));
-    setState(() {
-      isScanning = false;
-    });
-  }
 
-  Future<void> _printTicket() async {
-    // Show dialog to select Bluetooth printer
-    selectedPrinter = await showDialog<PrinterBluetooth>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Select Bluetooth Printer'),
-          content: Container(
-            width: double.maxFinite,
-            child: ListView.builder(
-              itemCount: devices.length,
-              itemBuilder: (context, index) {
-                return ListTile(
-                  title: Text(devices[index].name ?? ""),
-                  onTap: () {
-                    Navigator.of(context).pop(devices[index]);
-                  },
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                _scanBluetoothDevices();
-              },
-              child: Text('Scan'),
-            ),
-          ],
-        );
-      },
-    );
 
-    if (selectedPrinter == null) {
-      _showError("No Bluetooth printer selected.");
-      return;
-    }
 
-    try {
-      // Generate ESC/POS commands
-      final profile = await CapabilityProfile.load();
-      final generator = Generator(PaperSize.mm80, profile);
-
-      List<int> bytes = [];
-
-      // Add ticket details to print
-      bytes += generator.text("Company: ${widget.CompanyCode}", styles: PosStyles(align: PosAlign.center, height: PosTextSize.size2));
-      bytes += generator.text("Vehicle: $_selectedVehicle", styles: PosStyles(align: PosAlign.center));
-      bytes += generator.text("Amount Paid: ${_amountController.text}", styles: PosStyles(align: PosAlign.center));
-      bytes += generator.text("Served By: ${widget.userFullName}", styles: PosStyles(align: PosAlign.center));
-      bytes += generator.text("Customer Care: ${widget.phone}", styles: PosStyles(align: PosAlign.center));
-
-      bytes += generator.feed(2);
-      bytes += generator.cut();
-
-      // Select printer and print ticket
-      printerManager.selectPrinter(selectedPrinter!); // No need to await here
-      final result = await printerManager.printTicket(bytes);
-      print("Print result: $result");
-      _showSuccess("Ticket printed successfully");
-    } catch (e) {
-      _showError("An error occurred while printing: $e");
-    }
-  }
 
 
   void _showError(String message) {
