@@ -93,14 +93,15 @@ class _PrinterScreenState extends State<PrinterbookingScreen> {
 
     // Prepare the content to print
     String printContent = '''
-Parcel Receipt
+Ticket Receipt
 ------------------------------
-Parcel ID: ${widget.bookingData['ParcelID']}
+Ticket ID: ${widget.bookingData['TicketID']}
 Amount Paid: ${widget.bookingData['Amount']}
-Commission: ${widget.bookingData['Commission']}
+
 Sender: ${widget.bookingData['SenderName']}
-Receiver: ${widget.bookingData['ReceiverName']}
-Date: ${widget.bookingData['Date']}
+Vehicle:${widget.bookingData['Vehicle']}
+CollectionTypes: ${widget.bookingData['CollectionTypes']}
+Date: ${widget.bookingData['DateOfIssue']}
 ------------------------------
 Thank you for using our service!
 ''';

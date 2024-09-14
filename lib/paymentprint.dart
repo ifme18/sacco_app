@@ -93,13 +93,11 @@ class _PrinterScreenState extends State<PrinterpaymentScreen> {
 
     // Prepare the content to print
     String printContent = '''
-Parcel Receipt
+Payment  Receipt
 ------------------------------
-Parcel ID: ${widget.paymentData['ParcelID']}
+Collection Type: ${widget.paymentData['CollectionTypes']}
+CollectionTypes: ${widget.paymentData['CollectionTypes']}
 Amount Paid: ${widget.paymentData['Amount']}
-Commission: ${widget.paymentData['Commission']}
-Sender: ${widget.paymentData['SenderName']}
-Receiver: ${widget.paymentData['ReceiverName']}
 Date: ${widget.paymentData['Date']}
 ------------------------------
 Thank you for using our service!

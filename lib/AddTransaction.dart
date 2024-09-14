@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:sacco_app/paymentprint.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -256,11 +257,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Payment'),
+        title: const Text('Payment'),
         backgroundColor: Colors.blueAccent,
         actions: [
           IconButton(
-            icon: Icon(Icons.info_outline),
+            icon: const Icon(Icons.info_outline),
             onPressed: () {
               // Handle info icon press
             },
@@ -270,8 +271,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       body: SingleChildScrollView(
         child: Center(
           child: Container(
-            margin: EdgeInsets.all(16.0),
-            padding: EdgeInsets.all(16.0),
+            margin: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(16.0),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
@@ -280,7 +281,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   color: Colors.grey.withOpacity(0.5),
                   spreadRadius: 5,
                   blurRadius: 7,
-                  offset: Offset(0, 3),
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
@@ -292,28 +293,28 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   TextFormField(
                     controller: _amountController,
                     keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Amount',
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
                     validator: (value) => value == null || value.isEmpty ? 'Amount is required' : null,
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   TextFormField(
                     controller: _commissionController,
                     keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Commission',
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
                     validator: (value) => value == null || value.isEmpty ? 'Commission is required' : null,
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     value: _selectedPayment,
-                    hint: Text('Select Payment Mode'),
+                    hint: const Text('Select Payment Mode'),
                     items: _Payment.map((payment) {
                       return DropdownMenuItem<String>(
                         value: payment['PaymentMode'],
@@ -325,15 +326,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         _selectedPayment = value;
                       });
                     },
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) => value == null ? 'Payment mode is required' : null,
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     value: _selectedTransactionType,
-                    hint: Text('Select Transaction Type'),
+                    hint: const Text('Select Transaction Type'),
                     items: _transactionTypes.map((transactionType) {
                       return DropdownMenuItem<String>(
                         value: transactionType['Code'],
@@ -345,15 +346,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         _selectedTransactionType = value;
                       });
                     },
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) => value == null ? 'Transaction type is required' : null,
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     value: _selectedVehicle,
-                    hint: Text('Select Vehicle'),
+                    hint: const Text('Select Vehicle'),
                     items: _vehicles.map((vehicle) {
                       return DropdownMenuItem<String>(
                         value: vehicle['RegNo'],
@@ -369,49 +370,58 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         _ownerController.text = selectedVehicle['Owner'] ?? 'N/A';
                       });
                     },
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) => value == null ? 'Vehicle is required' : null,
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   TextFormField(
                     controller: _ownerController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Owner ID',
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
                     readOnly: true,
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   if (_isLoading)
-                    Center(child: CircularProgressIndicator())
+                    const Center(child: CircularProgressIndicator())
                   else
                     ElevatedButton(
                       onPressed: _submitPayment,
-                      child: Text('Submit Payment'),
+                      child: const Text('Submit Payment'),
                       style: ElevatedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                         backgroundColor: Colors.blueAccent,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
                     ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: () => _selectPrinter(context),
-                    child: Text('Select Bluetooth Printer'),
-                    style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(vertical: 14),
-                      backgroundColor: Colors.greenAccent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
+                    onPressed: () {
+                      final bookingDataToPrint = {
+                        'RegNo': _selectedVehicle ?? 'RegNo',
+                        'CollectionTypes': _selectedTransactionType ?? 'Code',
+                        'Trandate': DateTime.now().toIso8601String(),
+                        'TranType': _selectedTransactionType ?? 'Descr',
+                        'Amount': double.tryParse(_amountController.text) ?? 0.0,
+                        // Add any other parcel-specific details here
+                      };
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PrinterpaymentScreen(paymentData:bookingDataToPrint), // Pass the parcel data
+                        ),
+                      );
+                    }, child: null,
                   ),
-                ],
+
+               ]
               ),
             ),
           ),

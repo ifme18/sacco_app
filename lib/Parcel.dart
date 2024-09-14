@@ -5,8 +5,6 @@ import 'Attachprcel.dart';
 import 'Receiveparcel.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import 'package:esc_pos_utils/esc_pos_utils.dart';
 import 'printer.dart'; // Make sure to import the PrinterScreen class
 
 // Constants for API URLs
@@ -165,12 +163,22 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
+
+        // Debugging information
+        print('Response body: ${response.body}');
+        print('widget.Site: ${widget.Site.trim()}');
+
+        // Map and filter the sites, excluding those matching widget.Site
         setState(() {
           _siteOptions = data
-              .map<String>((item) => item['Descr'].toString())
-              .where((site) => site != widget.Site)
+              .map<String>((item) => item['Descr'].toString().trim()) // Convert each item to a string
+              .where((site) => site != widget.Site.trim()) // Exclude site matching widget.Site
               .toList();
 
+          // Debugging information
+          print('Filtered site options: $_siteOptions');
+
+          // Reset _selectedSite if it's no longer in the options
           if (_selectedSite != null && !_siteOptions.contains(_selectedSite)) {
             _selectedSite = null;
           }
@@ -183,6 +191,10 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
       _showError("An error occurred while fetching sites.");
     }
   }
+
+
+
+
 
   // Format date to string
   String _formatDate(DateTime date) {
@@ -336,33 +348,14 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
                         _buildTextField(_driverTelController, "Driver Tel", TextInputType.phone),
                         _buildTextField(_descriptionController, "Description", TextInputType.text),
                         _buildTextField(_quantityController, "Quantity", TextInputType.number),
-                        _buildDateField(_dateController, "Date", (newValue) {
-                          setState(() {
-                            _selectedDate = newValue;
-                            _dateController.text = _formatDate(newValue);
-                          });
-                        }),
-                        _buildDateField(_dateCapturedController, "Date Captured", (newValue) {
-                          setState(() {
-                            _dateCapturedController.text = _formatDate(newValue);
-                          });
-                        }),
-                        _buildTextField(_townController, "Town", TextInputType.text),
-                        _buildDropdownField(_siteOptions, _selectedSite, "Site", (newValue) {
+
+                        _buildTextField(_townController, widget.Site, TextInputType.text),
+                        _buildDropdownField(_siteOptions, _selectedSite, "Town", (newValue) {
                           setState(() {
                             _selectedSite = newValue;
                           });
                         }),
-                        _buildDateField(_dateAttachedController, "Date Attached", (newValue) {
-                          setState(() {
-                            _dateAttachedController.text = _formatDate(newValue);
-                          });
-                        }),
-                        _buildDateField(_dateDeliveredController, "Date Delivered", (newValue) {
-                          setState(() {
-                            _dateDeliveredController.text = _formatDate(newValue);
-                          });
-                        }),
+
                         _buildTextField(_collectedByController, "Collected By", TextInputType.text),
 
                         SizedBox(height: 20),
@@ -420,7 +413,7 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
               );
             },
             child: Icon(Icons.navigation),
-            tooltip: 'Go to Screen 1',
+            tooltip: 'deliver',
           ),
           SizedBox(width: 10),
           FloatingActionButton(
@@ -432,7 +425,7 @@ class _ParcelEntryDialogState extends State<ParcelEntryDialog> {
               );
             },
             child: Icon(Icons.card_travel),
-            tooltip: 'Go to Screen 2',
+            tooltip: 'Collect parcel',
           ),
         ],
       ),

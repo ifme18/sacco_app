@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:sacco_app/printerbook.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -526,8 +527,27 @@ class _BusTicketWidgetState extends State<BusTicketWidget> {
                 ),
                 SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: _scanBluetoothDevices,
-                  child: Text('Scan for Bluetooth Printers'),
+                  onPressed: () {
+                    final bookingDataToPrint = {
+                      'TicketID': _TicketNumber,
+
+
+                      'VehicleNo': _selectedVehicle,
+                      'PassengerName': _passengerNameController.text,
+                      'PassengerTel': _passangerNOController.text,
+                      'DateOfIssue': DateTime.now().toIso8601String(),
+                      'TimeOfTravel': DateTime.now().toIso8601String(),
+                      'Amount': double.tryParse(_amountController.text) ,
+                      // Add any other parcel-specific details here
+                    };
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PrinterbookingScreen(bookingData:bookingDataToPrint), // Pass the parcel data
+                      ),
+                    );
+                  }, child: null,
                 ),
               ],
             ),
