@@ -47,6 +47,7 @@ dev_dependencies:
   cloud_firestore: ^4.7.0
   esc_pos_printer: ^4.1.0
   esc_pos_utils: ^1.1.0
+  flutter_esc_pos_bluetooth: ^0.0.2
   esc_pos_bluetooth: ^0.4.1
 
   http: ^1.2.2

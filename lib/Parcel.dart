@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
-import 'package:sacco_app/Attachprcel.dart';
-import 'package:sacco_app/Receiveparcel.dart';
+import 'Attachprcel.dart';
+import 'Receiveparcel.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:esc_pos_bluetooth/esc_pos_bluetooth.dart';

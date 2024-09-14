@@ -348,168 +348,168 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: Text('Payment'),
-          backgroundColor: Colors.blueAccent,
-          actions: [
-            IconButton(
-              icon: Icon(Icons.info_outline),
-              onPressed: () {
-                // Handle info icon press
-              },
-            ),
-          ],
-        ),
-        body: SingleChildScrollView(
+      appBar: AppBar(
+        title: Text('Payment'),
+        backgroundColor: Colors.blueAccent,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.info_outline),
+            onPressed: () {
+              // Handle info icon press
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
         child: Center(
-        child: Container(
-        margin: EdgeInsets.all(16.0),
-    padding: EdgeInsets.all(16.0),
-    decoration: BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(12),
-    boxShadow: [
-    BoxShadow(
-    color: Colors.grey.withOpacity(0.5),
-    spreadRadius: 5,
-    blurRadius: 7,
-    offset: Offset(0, 3),
-    ),
-    ],
-    ),
-    child: Form(
-    key: _formKey,
-    child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-    TextFormField(
-    controller: _amountController,
-    keyboardType: TextInputType.number,
-    decoration: InputDecoration(
-    labelText: 'Amount',
-    border: OutlineInputBorder(),
-    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    ),
-    validator: (value) => value == null || value.isEmpty ? 'Amount is required' : null,
-    ),
-    SizedBox(height: 16),
-    TextFormField(
-    controller: _commissionController,
-    keyboardType: TextInputType.number,
-    decoration: InputDecoration(
-    labelText: 'Commission',
-    border: OutlineInputBorder(),
-    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    ),
-    validator: (value) => value == null || value.isEmpty ? 'Commission is required' : null,
-    ),
-    SizedBox(height: 16),
-    DropdownButtonFormField<String>(
-    value: _selectedPayment,
-    hint: Text('Select Payment Mode'),
-    items: _Payment.map((payment) {
-    return DropdownMenuItem<String>(
-    value: payment['PaymentMode'],
-    child: Text(payment['PaymentMode']),
-    );
-    }).toList(),
-    onChanged: (value) {
-    setState(() {
-    _selectedPayment = value;
-    });
-    },
-    decoration: InputDecoration(
-    border: OutlineInputBorder(),
-    ),
-    validator: (value) => value == null ? 'Payment mode is required' : null,
-    ),
-    SizedBox(height: 16),
-    DropdownButtonFormField<String>(
-    value: _selectedTransactionType,
-    hint: Text('Select Transaction Type'),
-    items: _transactionTypes.map((transactionType) {
-    return DropdownMenuItem<String>(
-    value: transactionType['Code'],
-    child: Text(transactionType['Descr']),
-    );
-    }).toList(),
-    onChanged: (value) {
-    setState(() {
-    _selectedTransactionType = value;
-    });
-    },
-    decoration: InputDecoration(
-    border: OutlineInputBorder(),
-    ),
-      validator: (value) => value == null ? 'Transaction type is required' : null,
-    ),
-      SizedBox(height: 16),
-      DropdownButtonFormField<String>(
-        value: _selectedVehicle,
-        hint: Text('Select Vehicle'),
-        items: _vehicles.map((vehicle) {
-          return DropdownMenuItem<String>(
-            value: vehicle['RegNo'],
-            child: Text(vehicle['RegNo']),
-          );
-        }).toList(),
-        onChanged: (value) {
-          setState(() {
-            _selectedVehicle = value;
+          child: Container(
+            margin: EdgeInsets.all(16.0),
+            padding: EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.5),
+                  spreadRadius: 5,
+                  blurRadius: 7,
+                  offset: Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    controller: _amountController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Amount',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    validator: (value) => value == null || value.isEmpty ? 'Amount is required' : null,
+                  ),
+                  SizedBox(height: 16),
+                  TextFormField(
+                    controller: _commissionController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Commission',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    validator: (value) => value == null || value.isEmpty ? 'Commission is required' : null,
+                  ),
+                  SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: _selectedPayment,
+                    hint: Text('Select Payment Mode'),
+                    items: _Payment.map((payment) {
+                      return DropdownMenuItem<String>(
+                        value: payment['PaymentMode'],
+                        child: Text(payment['PaymentMode']),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedPayment = value;
+                      });
+                    },
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) => value == null ? 'Payment mode is required' : null,
+                  ),
+                  SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: _selectedTransactionType,
+                    hint: Text('Select Transaction Type'),
+                    items: _transactionTypes.map((transactionType) {
+                      return DropdownMenuItem<String>(
+                        value: transactionType['Code'],
+                        child: Text(transactionType['Descr']),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedTransactionType = value;
+                      });
+                    },
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) => value == null ? 'Transaction type is required' : null,
+                  ),
+                  SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: _selectedVehicle,
+                    hint: Text('Select Vehicle'),
+                    items: _vehicles.map((vehicle) {
+                      return DropdownMenuItem<String>(
+                        value: vehicle['RegNo'],
+                        child: Text(vehicle['RegNo']),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedVehicle = value;
 
-            // Populate the owner ID field from the selected vehicle
-            final selectedVehicle = _vehicles.firstWhere((vehicle) => vehicle['RegNo'] == value);
-            _ownerController.text = selectedVehicle['Owner'] ?? 'N/A';
-          });
-        },
-        decoration: InputDecoration(
-          border: OutlineInputBorder(),
-        ),
-        validator: (value) => value == null ? 'Vehicle is required' : null,
-      ),
-      SizedBox(height: 16),
-      TextFormField(
-        controller: _ownerController,
-        decoration: InputDecoration(
-          labelText: 'Owner ID',
-          border: OutlineInputBorder(),
-          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        ),
-        readOnly: true,
-      ),
-      SizedBox(height: 16),
-      if (_isLoading)
-        Center(child: CircularProgressIndicator())
-      else
-        ElevatedButton(
-          onPressed: _submitPayment,
-          child: Text('Submit Payment'),
-          style: ElevatedButton.styleFrom(
-            padding: EdgeInsets.symmetric(vertical: 14),
-            backgroundColor: Colors.blueAccent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+                        // Populate the owner ID field from the selected vehicle
+                        final selectedVehicle = _vehicles.firstWhere((vehicle) => vehicle['RegNo'] == value);
+                        _ownerController.text = selectedVehicle['Owner'] ?? 'N/A';
+                      });
+                    },
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) => value == null ? 'Vehicle is required' : null,
+                  ),
+                  SizedBox(height: 16),
+                  TextFormField(
+                    controller: _ownerController,
+                    decoration: InputDecoration(
+                      labelText: 'Owner ID',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    readOnly: true,
+                  ),
+                  SizedBox(height: 16),
+                  if (_isLoading)
+                    Center(child: CircularProgressIndicator())
+                  else
+                    ElevatedButton(
+                      onPressed: _submitPayment,
+                      child: Text('Submit Payment'),
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        backgroundColor: Colors.blueAccent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => _selectPrinter(context),
+                    child: Text('Select Bluetooth Printer'),
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(vertical: 14),
+                      backgroundColor: Colors.greenAccent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      SizedBox(height: 16),
-      ElevatedButton(
-        onPressed: () => _selectPrinter(context),
-        child: Text('Select Bluetooth Printer'),
-        style: ElevatedButton.styleFrom(
-          padding: EdgeInsets.symmetric(vertical: 14),
-          backgroundColor: Colors.greenAccent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
       ),
-    ],
-    ),
-    ),
-        ),
-        ),
-        ),
     );
   }
 }
